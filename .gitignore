@@ -1,0 +1,35 @@
+# Arquivos de contexto local da LLM
+/AGENTS.md
+/PROJECT.md
+/SESSION.md
+/sdd/
+
+# Temporários e artefatos locais
+/tmp/
+/data/
+/uploads/
+*.log
+
+# Segredos e configurações locais
+.env
+.env.*
+!.env.example
+
+# Java e Maven
+**/target/
+.mvn/timing.properties
+
+# Node e Angular
+**/node_modules/
+**/dist/
+.angular/
+
+# IDEs
+/.idea/
+/.vscode/
+*.iml
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini

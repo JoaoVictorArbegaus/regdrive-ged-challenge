@@ -1,0 +1,2 @@
+-- Initial Flyway baseline for the GED database.
+-- Domain tables will be introduced with their respective implementation phases.

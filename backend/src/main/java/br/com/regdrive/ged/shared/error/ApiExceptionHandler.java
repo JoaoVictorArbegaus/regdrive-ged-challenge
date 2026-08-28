@@ -1,5 +1,6 @@
 package br.com.regdrive.ged.shared.error;
 
+import br.com.regdrive.ged.auth.InvalidCredentialsException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -17,6 +18,18 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
+
+	@ExceptionHandler(InvalidCredentialsException.class)
+	ResponseEntity<ProblemDetail> handleInvalidCredentials(
+			InvalidCredentialsException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.UNAUTHORIZED,
+				"INVALID_CREDENTIALS",
+				"Credenciais inválidas",
+				exception.getMessage(),
+				request);
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+	}
 
 	@ExceptionHandler(NoResourceFoundException.class)
 	ResponseEntity<ProblemDetail> handleResourceNotFound(

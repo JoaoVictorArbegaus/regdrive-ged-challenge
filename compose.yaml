@@ -23,6 +23,11 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-regdrive_ged}
       DB_USERNAME: ${POSTGRES_USER:-regdrive}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-regdrive}
+      JWT_SECRET: ${JWT_SECRET:-docker-development-secret-change-me-12345}
+      DEMO_USERS_ENABLED: ${DEMO_USERS_ENABLED:-true}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin123}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-user123}
+      DEMO_VIEWER_PASSWORD: ${DEMO_VIEWER_PASSWORD:-viewer123}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:

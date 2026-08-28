@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -22,10 +23,6 @@ class RegdriveGedApplicationTests {
 	private MockMvc mockMvc;
 
 	@Test
-	void contextLoads() {
-	}
-
-	@Test
 	void healthCheckIsAvailable() throws Exception {
 		mockMvc.perform(get("/actuator/health"))
 				.andExpect(status().isOk())
@@ -33,6 +30,7 @@ class RegdriveGedApplicationTests {
 	}
 
 	@Test
+	@WithMockUser(roles = "ADMIN")
 	void missingResourceUsesProblemDetails() throws Exception {
 		mockMvc.perform(get("/api/missing"))
 				.andExpect(status().isNotFound())

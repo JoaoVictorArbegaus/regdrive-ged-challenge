@@ -1,6 +1,6 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.security;
 
-import br.com.regdrive.ged.user.UserAccountRepository;
+import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import javax.crypto.SecretKey;

@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.dto;
 
 import java.time.Instant;
 

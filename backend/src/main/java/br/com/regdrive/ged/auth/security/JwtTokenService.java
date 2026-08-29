@@ -1,6 +1,7 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.security;
 
-import br.com.regdrive.ged.user.UserAccount;
+import br.com.regdrive.ged.auth.dto.LoginResponse;
+import br.com.regdrive.ged.user.domain.UserAccount;
 import java.time.Duration;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,7 +25,7 @@ public class JwtTokenService {
 		this.tokenTtl = tokenTtl;
 	}
 
-	LoginResponse issueToken(UserAccount user) {
+	public LoginResponse issueToken(UserAccount user) {
 		Instant issuedAt = Instant.now();
 		Instant expiresAt = issuedAt.plus(tokenTtl);
 		JwtClaimsSet claims = JwtClaimsSet.builder()

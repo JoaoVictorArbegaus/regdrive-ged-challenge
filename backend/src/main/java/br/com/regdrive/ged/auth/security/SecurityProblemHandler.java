@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

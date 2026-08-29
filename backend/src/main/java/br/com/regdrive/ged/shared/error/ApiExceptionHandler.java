@@ -1,6 +1,6 @@
 package br.com.regdrive.ged.shared.error;
 
-import br.com.regdrive.ged.auth.InvalidCredentialsException;
+import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.LinkedHashMap;

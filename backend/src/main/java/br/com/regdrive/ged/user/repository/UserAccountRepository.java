@@ -1,5 +1,6 @@
-package br.com.regdrive.ged.user;
+package br.com.regdrive.ged.user.repository;
 
+import br.com.regdrive.ged.user.domain.UserAccount;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

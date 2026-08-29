@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.exception;
 
 public class InvalidCredentialsException extends RuntimeException {
 

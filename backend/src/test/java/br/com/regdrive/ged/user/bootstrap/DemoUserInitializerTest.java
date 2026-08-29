@@ -1,10 +1,12 @@
-package br.com.regdrive.ged.user;
+package br.com.regdrive.ged.user.bootstrap;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.regdrive.ged.user.domain.UserAccount;
+import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -7,9 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import br.com.regdrive.ged.user.Role;
-import br.com.regdrive.ged.user.UserAccount;
-import br.com.regdrive.ged.user.UserAccountRepository;
+import br.com.regdrive.ged.user.domain.Role;
+import br.com.regdrive.ged.user.domain.UserAccount;
+import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -93,6 +93,17 @@ class AuthIntegrationTests {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
 				.andExpect(jsonPath("$.path").value("/api/auth/login"));
+	}
+
+	@Test
+	void blankUsernameReturnsValidationProblemDetails() throws Exception {
+		mockMvc.perform(post("/api/auth/login")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(loginBody("", "user123")))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.fieldErrors.username").exists());
 	}
 
 	@Test

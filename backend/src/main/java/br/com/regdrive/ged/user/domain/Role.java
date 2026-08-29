@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.user;
+package br.com.regdrive.ged.user.domain;
 
 public enum Role {
 	ADMIN,

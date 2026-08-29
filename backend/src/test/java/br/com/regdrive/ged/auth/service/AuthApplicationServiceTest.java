@@ -1,13 +1,17 @@
-package br.com.regdrive.ged.auth;
+package br.com.regdrive.ged.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import br.com.regdrive.ged.user.Role;
-import br.com.regdrive.ged.user.UserAccount;
-import br.com.regdrive.ged.user.UserAccountRepository;
+import br.com.regdrive.ged.auth.dto.LoginRequest;
+import br.com.regdrive.ged.auth.dto.LoginResponse;
+import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
+import br.com.regdrive.ged.auth.security.JwtTokenService;
+import br.com.regdrive.ged.user.domain.Role;
+import br.com.regdrive.ged.user.domain.UserAccount;
+import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -19,7 +23,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class AuthApplicationServiceTest {
 
 	@Mock
 	private AuthenticationManager authenticationManager;
@@ -31,7 +35,7 @@ class AuthServiceTest {
 	private JwtTokenService jwtTokenService;
 
 	@InjectMocks
-	private AuthService authService;
+	private AuthApplicationService authService;
 
 	@Test
 	void loginWithValidCredentialsReturnsToken() {

@@ -1,5 +1,8 @@
-package br.com.regdrive.ged.user;
+package br.com.regdrive.ged.user.bootstrap;
 
+import br.com.regdrive.ged.user.domain.Role;
+import br.com.regdrive.ged.user.domain.UserAccount;
+import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;

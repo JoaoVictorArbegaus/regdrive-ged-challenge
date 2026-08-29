@@ -1,4 +1,4 @@
-package br.com.regdrive.ged.user;
+package br.com.regdrive.ged.user.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

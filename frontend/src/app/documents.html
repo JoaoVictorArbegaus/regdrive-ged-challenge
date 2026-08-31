@@ -1,0 +1,88 @@
+<header class="topbar">
+  <a class="brand" routerLink="/documents">RegDrive <span>GED</span></a>
+  <div class="user-summary">
+    <span>{{ auth.user()?.username }} · {{ auth.user()?.role }}</span>
+    <button class="link-button" type="button" (click)="logout()">Sair</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Acervo</p>
+      <h1>Documentos</h1>
+      <p class="muted">{{ totalElements }} registro(s) visiveis para o seu perfil.</p>
+    </div>
+    @if (canWrite()) {
+      <button class="primary" type="button" (click)="showCreate = !showCreate">
+        @if (showCreate) { Cancelar } @else { Novo documento }
+      </button>
+    }
+  </div>
+
+  @if (showCreate) {
+    <section class="card create-card">
+      <h2>Criar documento</h2>
+      <form class="form-grid" (ngSubmit)="create()">
+        <label>Titulo <input name="newTitle" [(ngModel)]="newTitle" required /></label>
+        <label>Tags <input name="newTags" [(ngModel)]="newTags" placeholder="contrato, juridico" /></label>
+        <label class="wide">Descricao <textarea name="newDescription" [(ngModel)]="newDescription" rows="3"></textarea></label>
+        <div class="wide form-actions"><button class="primary" type="submit">Criar e abrir</button></div>
+      </form>
+    </section>
+  }
+
+  <section class="card filters">
+    <form class="filter-grid" (ngSubmit)="load()">
+      <label>Titulo <input name="title" [(ngModel)]="title" /></label>
+      <label>Tag <input name="tag" [(ngModel)]="tag" /></label>
+      <label>Status
+        <select name="status" [(ngModel)]="status">
+          <option value="">Todos</option>
+          <option value="DRAFT">Rascunho</option>
+          <option value="PUBLISHED">Publicado</option>
+          <option value="ARCHIVED">Arquivado</option>
+        </select>
+      </label>
+      <button class="secondary" type="submit">Filtrar</button>
+      <button class="link-button" type="button" (click)="clearFilters()">Limpar</button>
+    </form>
+  </section>
+
+  @if (error) { <p class="message error">{{ error }}</p> }
+
+  <section class="card table-card">
+    @if (loading) {
+      <p class="empty">Carregando documentos...</p>
+    } @else if (!items.length) {
+      <p class="empty">Nenhum documento encontrado.</p>
+    } @else {
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Titulo</th><th>Status</th><th>Tags</th><th>Atualizado</th><th></th></tr></thead>
+          <tbody>
+            @for (document of items; track document.id) {
+              <tr>
+                <td><strong>{{ document.title }}</strong><small>{{ document.tenantId }}</small></td>
+                <td><span class="status" [class]="'status ' + document.status.toLowerCase()">{{ document.status }}</span></td>
+                <td>{{ document.tags.join(', ') || '—' }}</td>
+                <td>{{ document.updatedAt | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td><a class="table-link" [routerLink]="['/documents', document.id]">Abrir</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <nav class="pagination" aria-label="Paginacao">
+    <button class="secondary" type="button" [disabled]="page === 0" (click)="load(page - 1)">Anterior</button>
+    @if (totalPages) {
+      <span>Pagina {{ page + 1 }} de {{ totalPages }}</span>
+    } @else {
+      <span>Pagina 0 de 0</span>
+    }
+    <button class="secondary" type="button" [disabled]="page + 1 >= totalPages" (click)="load(page + 1)">Proxima</button>
+  </nav>
+</main>

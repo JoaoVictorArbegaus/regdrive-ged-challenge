@@ -1,0 +1,31 @@
+<main class="login-page">
+  <section class="login-panel">
+    <p class="eyebrow">RegDrive</p>
+    <h1>Gestao de documentos</h1>
+    <p class="muted">Entre para consultar, versionar e auditar documentos.</p>
+
+    <form (ngSubmit)="submit()">
+      <label>
+        Usuario
+        <input name="username" [(ngModel)]="username" autocomplete="username" required />
+      </label>
+      <label>
+        Senha
+        <input name="password" [(ngModel)]="password" type="password" autocomplete="current-password" required />
+      </label>
+      @if (error) {
+        <p class="message error">{{ error }}</p>
+      }
+      <button class="primary full" type="submit" [disabled]="loading">
+        @if (loading) { Entrando... } @else { Entrar }
+      </button>
+    </form>
+
+    <div class="demo-users">
+      <strong>Usuarios de demonstracao</strong>
+      <span>admin / admin123</span>
+      <span>user / user123</span>
+      <span>viewer / viewer123</span>
+    </div>
+  </section>
+</main>

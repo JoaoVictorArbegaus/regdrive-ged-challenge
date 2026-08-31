@@ -2,7 +2,8 @@ package br.com.regdrive.ged.audit.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.regdrive.ged.audit.domain.AuditAction;
@@ -34,37 +35,29 @@ class AuditApplicationServiceTest {
 	private AuditApplicationService auditService;
 
 	@Test
-	void viewerListsAuditFromOwnTenant() {
+	void listReturnsVisibleTenantEventsAndHidesOtherTenant() {
 		UUID documentId = UUID.randomUUID();
-		AuthenticatedUser viewer = user(Role.VIEWER, "tenant-demo");
-		AuditEvent event = new AuditEvent(
-				documentId,
-				viewer.userId(),
-				AuditAction.FILE_DOWNLOADED,
-				Map.of("versionNumber", 1));
+		AuthenticatedUser viewer = new AuthenticatedUser(
+				UUID.randomUUID(), "viewer", Role.VIEWER, "tenant-demo");
+		AuditEvent created = new AuditEvent(
+				documentId, viewer.userId(), AuditAction.DOCUMENT_CREATED, Map.of());
+		AuditEvent downloaded = new AuditEvent(
+				documentId, viewer.userId(), AuditAction.FILE_DOWNLOADED, Map.of("versionNumber", 1));
 		when(documentRepository.existsByIdAndTenantId(documentId, "tenant-demo")).thenReturn(true);
 		when(auditRepository.findAllByDocumentIdOrderByOccurredAtAsc(documentId))
-				.thenReturn(List.of(event));
+				.thenReturn(List.of(created, downloaded));
 
 		var response = auditService.list(documentId, viewer);
 
-		assertThat(response).hasSize(1);
-		assertThat(response.getFirst().action()).isEqualTo(AuditAction.FILE_DOWNLOADED);
-		assertThat(response.getFirst().metadata()).containsEntry("versionNumber", 1);
-	}
+		assertThat(response).extracting(event -> event.action())
+				.containsExactly(AuditAction.DOCUMENT_CREATED, AuditAction.FILE_DOWNLOADED);
 
-	@Test
-	void userCannotListAuditFromAnotherTenant() {
-		UUID documentId = UUID.randomUUID();
-		AuthenticatedUser user = user(Role.USER, "tenant-demo");
-		when(documentRepository.existsByIdAndTenantId(documentId, "tenant-demo")).thenReturn(false);
-
-		assertThatThrownBy(() -> auditService.list(documentId, user))
+		UUID otherTenantDocument = UUID.randomUUID();
+		when(documentRepository.existsByIdAndTenantId(otherTenantDocument, "tenant-demo"))
+				.thenReturn(false);
+		assertThatThrownBy(() -> auditService.list(otherTenantDocument, viewer))
 				.isInstanceOf(DocumentNotFoundException.class);
-		verifyNoInteractions(auditRepository);
-	}
-
-	private AuthenticatedUser user(Role role, String tenantId) {
-		return new AuthenticatedUser(UUID.randomUUID(), role.name().toLowerCase(), role, tenantId);
+		verify(auditRepository).findAllByDocumentIdOrderByOccurredAtAsc(documentId);
+		verifyNoMoreInteractions(auditRepository);
 	}
 }

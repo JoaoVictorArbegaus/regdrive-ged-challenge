@@ -1,0 +1,98 @@
+<header class="topbar">
+  <a class="brand" routerLink="/documents">RegDrive <span>GED</span></a>
+  <a class="back-link" routerLink="/documents">← Voltar aos documentos</a>
+</header>
+
+<main class="page detail-page">
+  @if (loading) {
+    <p class="empty">Carregando documento...</p>
+  } @else if (document) {
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">Documento</p>
+        <h1>{{ document.title }}</h1>
+        <p class="muted">{{ document.tenantId }} · criado em {{ document.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+      </div>
+      <span class="status large" [class]="'status large ' + document.status.toLowerCase()">{{ document.status }}</span>
+    </div>
+
+    @if (error) { <p class="message error">{{ error }}</p> }
+    @if (success) { <p class="message success">{{ success }}</p> }
+
+    <div class="detail-grid">
+      <section class="card">
+        <h2>Metadados</h2>
+        <form (ngSubmit)="saveMetadata()">
+          <label>Titulo <input name="title" [(ngModel)]="title" [disabled]="!canWrite()" required /></label>
+          <label>Descricao <textarea name="description" [(ngModel)]="description" [disabled]="!canWrite()" rows="4"></textarea></label>
+          <label>Tags <input name="tags" [(ngModel)]="tags" [disabled]="!canWrite()" /></label>
+          @if (canWrite()) {
+            <button class="primary" type="submit">Salvar metadados</button>
+          }
+        </form>
+
+        @if (auth.user()?.role !== 'VIEWER') {
+          <div class="status-actions">
+            @if (document.status === 'DRAFT') {
+              <button class="secondary" type="button" (click)="changeStatus('PUBLISHED')">Publicar</button>
+            }
+            @if (document.status === 'PUBLISHED') {
+              <button class="danger" type="button" (click)="changeStatus('ARCHIVED')">Arquivar</button>
+            }
+          </div>
+        }
+      </section>
+
+      <section class="card">
+        <h2>Nova versao</h2>
+        @if (canWrite()) {
+          <p class="muted">PDF, PNG ou JPG, ate 10 MiB.</p>
+          <input class="file-input" type="file" accept=".pdf,.png,.jpg,.jpeg" (change)="chooseFile($event)" />
+          <button class="primary" type="button" [disabled]="!selectedFile" (click)="upload()">Enviar arquivo</button>
+        } @else {
+          <p class="empty">Este perfil ou status permite apenas consulta.</p>
+        }
+      </section>
+    </div>
+
+    <section class="card section-block">
+      <div class="section-title"><h2>Versoes</h2><span>{{ versions.length }}</span></div>
+      @if (!versions.length) {
+        <p class="empty">Nenhum arquivo enviado.</p>
+      } @else {
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Versao</th><th>Arquivo</th><th>Tamanho</th><th>Checksum SHA-256</th><th></th></tr></thead>
+            <tbody>
+              @for (version of versions; track version.id) {
+                <tr>
+                  <td><strong>#{{ version.versionNumber }}</strong></td>
+                  <td>{{ version.originalFilename }}<small>{{ version.uploadedAt | date:'dd/MM/yyyy HH:mm' }}</small></td>
+                  <td>{{ formatBytes(version.fileSize) }}</td>
+                  <td><code>{{ version.checksum }}</code></td>
+                  <td><button class="table-link button-reset" type="button" (click)="download(version)">Baixar</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="card section-block">
+      <div class="section-title"><h2>Auditoria</h2><span>{{ events.length }}</span></div>
+      @if (!events.length) {
+        <p class="empty">Nenhum evento registrado.</p>
+      } @else {
+        <ol class="timeline">
+          @for (event of events; track event.id) {
+            <li>
+              <div><strong>{{ event.action }}</strong><span>{{ event.timestamp | date:'dd/MM/yyyy HH:mm:ss' }}</span></div>
+              <code>{{ event.metadata | json }}</code>
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  }
+</main>

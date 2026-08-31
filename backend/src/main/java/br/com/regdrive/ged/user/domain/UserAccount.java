@@ -7,9 +7,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "users")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserAccount {
 
 	@Id
@@ -28,9 +33,6 @@ public class UserAccount {
 	@Column(name = "tenant_id", nullable = false, length = 100)
 	private String tenantId;
 
-	protected UserAccount() {
-	}
-
 	public UserAccount(String username, String passwordHash, Role role, String tenantId) {
 		this.id = UUID.randomUUID();
 		this.username = username;
@@ -39,23 +41,4 @@ public class UserAccount {
 		this.tenantId = tenantId;
 	}
 
-	public UUID getId() {
-		return id;
-	}
-
-	public String getUsername() {
-		return username;
-	}
-
-	public String getPasswordHash() {
-		return passwordHash;
-	}
-
-	public Role getRole() {
-		return role;
-	}
-
-	public String getTenantId() {
-		return tenantId;
-	}
 }

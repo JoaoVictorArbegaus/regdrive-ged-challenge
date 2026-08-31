@@ -32,6 +32,15 @@ public class LocalFileStorage implements FileStorage {
 	}
 
 	@Override
+	public byte[] load(String fileKey) {
+		try {
+			return Files.readAllBytes(resolve(fileKey));
+		} catch (IOException exception) {
+			throw new FileStorageException("Não foi possível carregar o arquivo.", exception);
+		}
+	}
+
+	@Override
 	public void delete(String fileKey) {
 		try {
 			Files.deleteIfExists(resolve(fileKey));

@@ -3,6 +3,7 @@ package br.com.regdrive.ged.shared.error;
 import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
 import br.com.regdrive.ged.document.exception.DocumentArchivedException;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
+import br.com.regdrive.ged.document.exception.DocumentVersionNotFoundException;
 import br.com.regdrive.ged.document.exception.FileStorageException;
 import br.com.regdrive.ged.document.exception.FileTooLargeException;
 import br.com.regdrive.ged.document.exception.InvalidDocumentListParameterException;
@@ -141,6 +142,18 @@ public class ApiExceptionHandler {
 				HttpStatus.NOT_FOUND,
 				"DOCUMENT_NOT_FOUND",
 				"Documento não encontrado",
+				exception.getMessage(),
+				request);
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
+	}
+
+	@ExceptionHandler(DocumentVersionNotFoundException.class)
+	ResponseEntity<ProblemDetail> handleDocumentVersionNotFound(
+			DocumentVersionNotFoundException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.NOT_FOUND,
+				"DOCUMENT_VERSION_NOT_FOUND",
+				"Versão não encontrada",
 				exception.getMessage(),
 				request);
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);

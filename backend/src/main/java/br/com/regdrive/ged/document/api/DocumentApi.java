@@ -1,5 +1,6 @@
 package br.com.regdrive.ged.document.api;
 
+import br.com.regdrive.ged.audit.dto.AuditEventResponse;
 import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentPageResponse;
@@ -9,6 +10,7 @@ import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
 import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import jakarta.validation.Valid;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -39,6 +41,28 @@ public interface DocumentApi {
 			@AuthenticationPrincipal Jwt jwt,
 			@PathVariable UUID documentId,
 			@RequestPart("file") MultipartFile file);
+
+	@GetMapping("/{documentId}/versions")
+	ResponseEntity<List<DocumentVersionResponse>> listVersions(
+			@AuthenticationPrincipal Jwt jwt,
+			@PathVariable UUID documentId);
+
+	@GetMapping("/{documentId}/versions/{versionNumber}")
+	ResponseEntity<DocumentVersionResponse> findVersion(
+			@AuthenticationPrincipal Jwt jwt,
+			@PathVariable UUID documentId,
+			@PathVariable int versionNumber);
+
+	@GetMapping("/{documentId}/versions/{versionNumber}/download")
+	ResponseEntity<byte[]> downloadVersion(
+			@AuthenticationPrincipal Jwt jwt,
+			@PathVariable UUID documentId,
+			@PathVariable int versionNumber);
+
+	@GetMapping("/{documentId}/audit")
+	ResponseEntity<List<AuditEventResponse>> listAudit(
+			@AuthenticationPrincipal Jwt jwt,
+			@PathVariable UUID documentId);
 
 	@GetMapping("/{documentId}")
 	ResponseEntity<DocumentResponse> findById(

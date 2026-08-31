@@ -15,6 +15,8 @@ public interface DocumentRepository extends JpaRepository<Document, UUID> {
 
 	Optional<Document> findByIdAndTenantId(UUID id, String tenantId);
 
+	boolean existsByIdAndTenantId(UUID id, String tenantId);
+
 	@Query("""
 			select document from Document document
 			where (:tenantId is null or document.tenantId = :tenantId)

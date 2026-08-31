@@ -1,5 +1,7 @@
 package br.com.regdrive.ged.document.controller;
 
+import br.com.regdrive.ged.audit.dto.AuditEventResponse;
+import br.com.regdrive.ged.audit.service.AuditService;
 import br.com.regdrive.ged.auth.security.AuthenticatedUser;
 import br.com.regdrive.ged.document.api.DocumentApi;
 import br.com.regdrive.ged.document.domain.DocumentStatus;
@@ -7,15 +9,21 @@ import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentListQuery;
 import br.com.regdrive.ged.document.dto.DocumentPageResponse;
 import br.com.regdrive.ged.document.dto.DocumentResponse;
+import br.com.regdrive.ged.document.dto.DocumentVersionDownload;
 import br.com.regdrive.ged.document.dto.DocumentVersionResponse;
 import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
 import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import br.com.regdrive.ged.document.service.DocumentService;
 import br.com.regdrive.ged.document.service.DocumentVersionService;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +35,7 @@ public class DocumentController implements DocumentApi {
 
 	private final DocumentService documentService;
 	private final DocumentVersionService documentVersionService;
+	private final AuditService auditService;
 
 	@Override
 	public ResponseEntity<DocumentResponse> create(Jwt jwt, CreateDocumentRequest request) {
@@ -42,6 +51,39 @@ public class DocumentController implements DocumentApi {
 		URI location = URI.create(
 				"/api/documents/" + documentId + "/versions/" + response.versionNumber());
 		return ResponseEntity.created(location).body(response);
+	}
+
+	@Override
+	public ResponseEntity<List<DocumentVersionResponse>> listVersions(Jwt jwt, UUID documentId) {
+		return ResponseEntity.ok(documentVersionService.list(
+				documentId, AuthenticatedUser.from(jwt)));
+	}
+
+	@Override
+	public ResponseEntity<DocumentVersionResponse> findVersion(
+			Jwt jwt, UUID documentId, int versionNumber) {
+		return ResponseEntity.ok(documentVersionService.findByVersionNumber(
+				documentId, versionNumber, AuthenticatedUser.from(jwt)));
+	}
+
+	@Override
+	public ResponseEntity<byte[]> downloadVersion(
+			Jwt jwt, UUID documentId, int versionNumber) {
+		DocumentVersionDownload download = documentVersionService.download(
+				documentId, versionNumber, AuthenticatedUser.from(jwt));
+		ContentDisposition disposition = ContentDisposition.attachment()
+				.filename(download.filename(), StandardCharsets.UTF_8)
+				.build();
+		return ResponseEntity.ok()
+				.contentType(MediaType.parseMediaType(download.mimeType()))
+				.contentLength(download.fileSize())
+				.header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+				.body(download.content());
+	}
+
+	@Override
+	public ResponseEntity<List<AuditEventResponse>> listAudit(Jwt jwt, UUID documentId) {
+		return ResponseEntity.ok(auditService.list(documentId, AuthenticatedUser.from(jwt)));
 	}
 
 	@Override

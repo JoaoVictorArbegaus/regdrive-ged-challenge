@@ -1,6 +1,7 @@
 package br.com.regdrive.ged.document.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -15,6 +16,7 @@ import br.com.regdrive.ged.document.repository.DocumentRepository;
 import br.com.regdrive.ged.user.domain.Role;
 import br.com.regdrive.ged.user.domain.UserAccount;
 import br.com.regdrive.ged.user.repository.UserAccountRepository;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -160,6 +163,141 @@ class DocumentIntegrationTests {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
 				.andExpect(jsonPath("$.parameter").value("documentId"));
+	}
+
+	@Test
+	void userUploadsFirstDocumentVersion() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+		MockMultipartFile file = new MockMultipartFile(
+				"file",
+				"contrato.pdf",
+				"application/pdf",
+				"%PDF-1.4\ncontent".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+		mockMvc.perform(multipart("/api/documents/{documentId}/versions", document.getId())
+					.file(file)
+					.header("Authorization", "Bearer " + loginToken("user", "user123")))
+				.andExpect(status().isCreated())
+				.andExpect(header().string(
+						"Location",
+						"/api/documents/" + document.getId() + "/versions/1"))
+				.andExpect(jsonPath("$.documentId").value(document.getId().toString()))
+				.andExpect(jsonPath("$.versionNumber").value(1))
+				.andExpect(jsonPath("$.originalFilename").value("contrato.pdf"))
+				.andExpect(jsonPath("$.checksum")
+						.value("4fbf22661c0285c55f8fa7518f954910e8b0c33750658fc6863f66aa6b94c7fd"))
+				.andExpect(jsonPath("$.fileKey").doesNotExist());
+	}
+
+	@Test
+	void uploadRejectsInvalidFileSignature() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+		MockMultipartFile file = new MockMultipartFile(
+				"file", "contrato.pdf", "application/pdf", "invalid".getBytes());
+
+		mockMvc.perform(multipart("/api/documents/{documentId}/versions", document.getId())
+					.file(file)
+					.header("Authorization", "Bearer " + loginToken("user", "user123")))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_FILE"));
+	}
+
+	@Test
+	void userListsOwnTenantWithCombinedFilters() throws Exception {
+		Document matching = new Document(
+				"Contrato Especial", null, Set.of("juridico"), "tenant-demo", user.getId());
+		matching.transitionTo(DocumentStatus.PUBLISHED);
+		matching = documentRepository.save(matching);
+		documentRepository.save(
+				new Document("Contrato Comum", null, Set.of("juridico"), "tenant-demo", user.getId()));
+		documentRepository.save(
+				new Document("Contrato Especial", null, Set.of("juridico"), "tenant-admin", admin.getId()));
+		Instant createdAt = matching.getCreatedAt();
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + loginToken("user", "user123"))
+					.param("tenantId", "tenant-admin")
+					.param("ownerId", user.getId().toString())
+					.param("title", "especial")
+					.param("tag", "juridico")
+					.param("status", "PUBLISHED")
+					.param("createdFrom", createdAt.minusSeconds(1).toString())
+					.param("createdTo", createdAt.plusSeconds(1).toString()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content.length()").value(1))
+				.andExpect(jsonPath("$.content[0].id").value(matching.getId().toString()))
+				.andExpect(jsonPath("$.content[0].tenantId").value("tenant-demo"))
+				.andExpect(jsonPath("$.totalElements").value(1));
+	}
+
+	@Test
+	void adminListsAllTenantsOrFiltersOneTenant() throws Exception {
+		documentRepository.save(
+				new Document("Documento Demo", null, Set.of(), "tenant-demo", user.getId()));
+		documentRepository.save(
+				new Document("Documento Admin", null, Set.of(), "tenant-admin", admin.getId()));
+		String token = loginToken("admin", "admin123");
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalElements").value(2));
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + token)
+					.param("tenantId", "tenant-demo"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content.length()").value(1))
+				.andExpect(jsonPath("$.content[0].tenantId").value("tenant-demo"));
+	}
+
+	@Test
+	void listAppliesPaginationAndSorting() throws Exception {
+		documentRepository.save(new Document("Gama", null, Set.of(), "tenant-demo", user.getId()));
+		documentRepository.save(new Document("Alfa", null, Set.of(), "tenant-demo", user.getId()));
+		documentRepository.save(new Document("Beta", null, Set.of(), "tenant-demo", user.getId()));
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + loginToken("user", "user123"))
+					.param("page", "0")
+					.param("size", "2")
+					.param("sort", "title,asc"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content.length()").value(2))
+				.andExpect(jsonPath("$.content[0].title").value("Alfa"))
+				.andExpect(jsonPath("$.content[1].title").value("Beta"))
+				.andExpect(jsonPath("$.page").value(0))
+				.andExpect(jsonPath("$.size").value(2))
+				.andExpect(jsonPath("$.totalElements").value(3))
+				.andExpect(jsonPath("$.totalPages").value(2));
+	}
+
+	@Test
+	void listRejectsInvalidParameters() throws Exception {
+		String token = loginToken("user", "user123");
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + token)
+					.param("page", "-1"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
+				.andExpect(jsonPath("$.parameter").value("page"));
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + token)
+					.param("size", "101"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
+				.andExpect(jsonPath("$.parameter").value("size"));
+
+		mockMvc.perform(get("/api/documents")
+					.header("Authorization", "Bearer " + token)
+					.param("sort", "description,asc"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
+				.andExpect(jsonPath("$.parameter").value("sort"));
 	}
 
 	@Test

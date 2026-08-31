@@ -4,5 +4,7 @@ public interface FileStorage {
 
 	String store(byte[] content);
 
+	byte[] load(String fileKey);
+
 	void delete(String fileKey);
 }

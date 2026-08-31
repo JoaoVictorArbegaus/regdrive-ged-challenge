@@ -1,12 +1,16 @@
 package br.com.regdrive.ged.document.service;
 
+import br.com.regdrive.ged.audit.domain.AuditAction;
+import br.com.regdrive.ged.audit.service.AuditService;
 import br.com.regdrive.ged.auth.security.AuthenticatedUser;
 import br.com.regdrive.ged.document.domain.Document;
 import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.domain.DocumentVersion;
+import br.com.regdrive.ged.document.dto.DocumentVersionDownload;
 import br.com.regdrive.ged.document.dto.DocumentVersionResponse;
 import br.com.regdrive.ged.document.exception.DocumentArchivedException;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
+import br.com.regdrive.ged.document.exception.DocumentVersionNotFoundException;
 import br.com.regdrive.ged.document.exception.FileStorageException;
 import br.com.regdrive.ged.document.exception.FileTooLargeException;
 import br.com.regdrive.ged.document.exception.InvalidFileException;
@@ -18,7 +22,9 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -39,6 +45,7 @@ public class DocumentVersionApplicationService implements DocumentVersionService
 	private final DocumentRepository documentRepository;
 	private final DocumentVersionRepository versionRepository;
 	private final FileStorage fileStorage;
+	private final AuditService auditService;
 
 	@Override
 	@Transactional
@@ -71,7 +78,18 @@ public class DocumentVersionApplicationService implements DocumentVersionService
 				checksum,
 				authenticatedUser.userId());
 		try {
-			return toResponse(versionRepository.saveAndFlush(version));
+			DocumentVersion savedVersion = versionRepository.saveAndFlush(version);
+			auditService.record(
+					documentId,
+					authenticatedUser,
+					AuditAction.FILE_UPLOADED,
+					Map.of(
+							"versionNumber", savedVersion.getVersionNumber(),
+							"filename", savedVersion.getOriginalFilename(),
+							"mimeType", savedVersion.getMimeType(),
+							"fileSize", savedVersion.getFileSize(),
+							"checksum", savedVersion.getChecksum()));
+			return toResponse(savedVersion);
 		} catch (RuntimeException exception) {
 			try {
 				fileStorage.delete(fileKey);
@@ -80,6 +98,43 @@ public class DocumentVersionApplicationService implements DocumentVersionService
 			}
 			throw exception;
 		}
+	}
+
+	@Override
+	public List<DocumentVersionResponse> list(
+			UUID documentId, AuthenticatedUser authenticatedUser) {
+		findAccessibleDocument(documentId, authenticatedUser);
+		return versionRepository.findAllByDocumentIdOrderByVersionNumberAsc(documentId).stream()
+				.map(this::toResponse)
+				.toList();
+	}
+
+	@Override
+	public DocumentVersionResponse findByVersionNumber(
+			UUID documentId, int versionNumber, AuthenticatedUser authenticatedUser) {
+		findAccessibleDocument(documentId, authenticatedUser);
+		return toResponse(findVersion(documentId, versionNumber));
+	}
+
+	@Override
+	@Transactional
+	public DocumentVersionDownload download(
+			UUID documentId, int versionNumber, AuthenticatedUser authenticatedUser) {
+		findAccessibleDocument(documentId, authenticatedUser);
+		DocumentVersion version = findVersion(documentId, versionNumber);
+		byte[] content = fileStorage.load(version.getFileKey());
+		auditService.record(
+				documentId,
+				authenticatedUser,
+				AuditAction.FILE_DOWNLOADED,
+				Map.of(
+						"versionNumber", version.getVersionNumber(),
+						"filename", version.getOriginalFilename()));
+		return new DocumentVersionDownload(
+				version.getOriginalFilename(),
+				version.getMimeType(),
+				version.getFileSize(),
+				content);
 	}
 
 	private void ensureCanUpload(AuthenticatedUser authenticatedUser) {
@@ -97,6 +152,11 @@ public class DocumentVersionApplicationService implements DocumentVersionService
 			return documentRepository.findByIdAndTenantId(documentId, authenticatedUser.tenantId())
 					.orElseThrow(DocumentNotFoundException::new);
 		}
+	}
+
+	private DocumentVersion findVersion(UUID documentId, int versionNumber) {
+		return versionRepository.findByDocumentIdAndVersionNumber(documentId, versionNumber)
+				.orElseThrow(DocumentVersionNotFoundException::new);
 	}
 
 	private ValidatedFile validate(MultipartFile file) {

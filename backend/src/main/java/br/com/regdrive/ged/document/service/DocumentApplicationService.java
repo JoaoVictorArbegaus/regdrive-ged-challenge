@@ -1,7 +1,10 @@
 package br.com.regdrive.ged.document.service;
 
+import br.com.regdrive.ged.audit.domain.AuditAction;
+import br.com.regdrive.ged.audit.service.AuditService;
 import br.com.regdrive.ged.auth.security.AuthenticatedUser;
 import br.com.regdrive.ged.document.domain.Document;
+import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentListQuery;
 import br.com.regdrive.ged.document.dto.DocumentPageResponse;
@@ -15,6 +18,7 @@ import br.com.regdrive.ged.document.repository.DocumentRepository;
 import br.com.regdrive.ged.user.domain.Role;
 import br.com.regdrive.ged.user.repository.UserAccountRepository;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +40,7 @@ public class DocumentApplicationService implements DocumentService {
 
 	private final DocumentRepository documentRepository;
 	private final UserAccountRepository userRepository;
+	private final AuditService auditService;
 
 	@Override
 	@Transactional
@@ -63,7 +68,15 @@ public class DocumentApplicationService implements DocumentService {
 				request.tags(),
 				tenantId,
 				ownerId);
-		return toResponse(documentRepository.save(document));
+		Document savedDocument = documentRepository.save(document);
+		auditService.record(
+				savedDocument.getId(),
+				authenticatedUser,
+				AuditAction.DOCUMENT_CREATED,
+				Map.of(
+						"status", savedDocument.getStatus().name(),
+						"tenantId", savedDocument.getTenantId()));
+		return toResponse(savedDocument);
 	}
 
 	@Override
@@ -114,6 +127,11 @@ public class DocumentApplicationService implements DocumentService {
 		ensureCanWrite(authenticatedUser);
 		Document document = findAccessibleDocument(documentId, authenticatedUser);
 		document.updateMetadata(request.title(), request.description(), request.tags());
+		auditService.record(
+				documentId,
+				authenticatedUser,
+				AuditAction.DOCUMENT_UPDATED,
+				Map.of("changedFields", Set.of("title", "description", "tags")));
 		return toResponse(document);
 	}
 
@@ -123,7 +141,21 @@ public class DocumentApplicationService implements DocumentService {
 			UUID documentId, UpdateDocumentStatusRequest request, AuthenticatedUser authenticatedUser) {
 		ensureCanWrite(authenticatedUser);
 		Document document = findAccessibleDocument(documentId, authenticatedUser);
+		DocumentStatus previousStatus = document.getStatus();
 		document.transitionTo(request.status());
+		AuditAction action;
+		if (request.status() == DocumentStatus.PUBLISHED) {
+			action = AuditAction.DOCUMENT_PUBLISHED;
+		} else {
+			action = AuditAction.DOCUMENT_ARCHIVED;
+		}
+		auditService.record(
+				documentId,
+				authenticatedUser,
+				action,
+				Map.of(
+						"previousStatus", previousStatus.name(),
+						"newStatus", document.getStatus().name()));
 		return toResponse(document);
 	}
 

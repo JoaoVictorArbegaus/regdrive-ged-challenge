@@ -1,13 +1,16 @@
 package br.com.regdrive.ged.document.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.regdrive.ged.document.domain.Document;
+import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.repository.DocumentRepository;
 import br.com.regdrive.ged.user.domain.Role;
 import br.com.regdrive.ged.user.domain.UserAccount;
@@ -26,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
@@ -156,6 +160,118 @@ class DocumentIntegrationTests {
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.code").value("INVALID_PARAMETER"))
 				.andExpect(jsonPath("$.parameter").value("documentId"));
+	}
+
+	@Test
+	void putReplacesMetadataAndPersistsChanges() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", "Descrição", Set.of("antiga"), "tenant-demo", user.getId()));
+		String token = loginToken("user", "user123");
+		String body = objectMapper.writeValueAsString(Map.of(
+				"title", "Contrato atualizado",
+				"description", "Nova descrição",
+				"tags", Set.of("nova", "vigente")));
+
+		mockMvc.perform(put("/api/documents/{documentId}", document.getId())
+					.header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("Contrato atualizado"))
+				.andExpect(jsonPath("$.description").value("Nova descrição"))
+				.andExpect(jsonPath("$.tags").isArray())
+				.andExpect(jsonPath("$.tags.length()").value(2));
+
+		mockMvc.perform(get("/api/documents/{documentId}", document.getId())
+					.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("Contrato atualizado"))
+				.andExpect(jsonPath("$.description").value("Nova descrição"))
+				.andExpect(jsonPath("$.tags.length()").value(2));
+	}
+
+	@Test
+	void patchTransitionsDocumentUntilArchived() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+		String token = loginToken("user", "user123");
+
+		changeStatus(document.getId(), "PUBLISHED", token)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("PUBLISHED"));
+		changeStatus(document.getId(), "ARCHIVED", token)
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("ARCHIVED"));
+	}
+
+	@Test
+	void archivedDocumentRejectsMetadataUpdate() throws Exception {
+		Document document = new Document("Contrato", null, Set.of(), "tenant-demo", user.getId());
+		document.transitionTo(DocumentStatus.PUBLISHED);
+		document.transitionTo(DocumentStatus.ARCHIVED);
+		documentRepository.save(document);
+
+		mockMvc.perform(put("/api/documents/{documentId}", document.getId())
+					.header("Authorization", "Bearer " + loginToken("user", "user123"))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"title\":\"Outro\",\"tags\":[]}"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("DOCUMENT_ARCHIVED"));
+	}
+
+	@Test
+	void invalidStatusTransitionReturnsConflict() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+
+		changeStatus(document.getId(), "ARCHIVED", loginToken("user", "user123"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
+	}
+
+	@Test
+	void userCannotUpdateDocumentFromAnotherTenant() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-admin", admin.getId()));
+
+		mockMvc.perform(put("/api/documents/{documentId}", document.getId())
+					.header("Authorization", "Bearer " + loginToken("user", "user123"))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"title\":\"Outro\",\"tags\":[]}"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.code").value("DOCUMENT_NOT_FOUND"));
+	}
+
+	@Test
+	void viewerCannotChangeDocumentStatus() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+
+		changeStatus(document.getId(), "PUBLISHED", loginToken("viewer", "viewer123"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+	}
+
+	@Test
+	void nullStatusReturnsValidationProblemDetails() throws Exception {
+		Document document = documentRepository.save(
+				new Document("Contrato", null, Set.of(), "tenant-demo", user.getId()));
+
+		mockMvc.perform(patch("/api/documents/{documentId}/status", document.getId())
+					.header("Authorization", "Bearer " + loginToken("user", "user123"))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+				.andExpect(jsonPath("$.fieldErrors.status").exists());
+	}
+
+	private ResultActions changeStatus(
+			UUID documentId, String statusValue, String token) throws Exception {
+		return mockMvc.perform(patch("/api/documents/{documentId}/status", documentId)
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of("status", statusValue))));
 	}
 
 	private String loginToken(String username, String password) throws Exception {

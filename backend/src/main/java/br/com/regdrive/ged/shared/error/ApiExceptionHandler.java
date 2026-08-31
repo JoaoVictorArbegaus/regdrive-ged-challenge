@@ -1,7 +1,9 @@
 package br.com.regdrive.ged.shared.error;
 
 import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
+import br.com.regdrive.ged.document.exception.DocumentArchivedException;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
+import br.com.regdrive.ged.document.exception.InvalidDocumentStatusTransitionException;
 import br.com.regdrive.ged.document.exception.OwnerNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -23,6 +25,30 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
+
+	@ExceptionHandler(DocumentArchivedException.class)
+	ResponseEntity<ProblemDetail> handleDocumentArchived(
+			DocumentArchivedException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.CONFLICT,
+				"DOCUMENT_ARCHIVED",
+				"Documento arquivado",
+				exception.getMessage(),
+				request);
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+	}
+
+	@ExceptionHandler(InvalidDocumentStatusTransitionException.class)
+	ResponseEntity<ProblemDetail> handleInvalidStatusTransition(
+			InvalidDocumentStatusTransitionException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.CONFLICT,
+				"INVALID_STATUS_TRANSITION",
+				"Transição de status inválida",
+				exception.getMessage(),
+				request);
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+	}
 
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	ResponseEntity<ProblemDetail> handleMalformedRequest(

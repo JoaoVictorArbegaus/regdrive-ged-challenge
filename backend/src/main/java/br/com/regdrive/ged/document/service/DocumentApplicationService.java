@@ -4,6 +4,8 @@ import br.com.regdrive.ged.auth.security.AuthenticatedUser;
 import br.com.regdrive.ged.document.domain.Document;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentResponse;
+import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
+import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
 import br.com.regdrive.ged.document.exception.OwnerNotFoundException;
 import br.com.regdrive.ged.document.repository.DocumentRepository;
@@ -26,9 +28,7 @@ public class DocumentApplicationService implements DocumentService {
 	@Override
 	@Transactional
 	public DocumentResponse create(CreateDocumentRequest request, AuthenticatedUser authenticatedUser) {
-		if (authenticatedUser.role() == Role.VIEWER) {
-			throw new AccessDeniedException("Usuário sem permissão para criar documentos.");
-		}
+		ensureCanWrite(authenticatedUser);
 
 		String tenantId = authenticatedUser.tenantId();
 		UUID ownerId = authenticatedUser.userId();
@@ -56,11 +56,40 @@ public class DocumentApplicationService implements DocumentService {
 
 	@Override
 	public DocumentResponse findById(UUID documentId, AuthenticatedUser authenticatedUser) {
-		Document document = authenticatedUser.isAdmin()
+		return toResponse(findAccessibleDocument(documentId, authenticatedUser));
+	}
+
+	@Override
+	@Transactional
+	public DocumentResponse updateMetadata(
+			UUID documentId, UpdateDocumentRequest request, AuthenticatedUser authenticatedUser) {
+		ensureCanWrite(authenticatedUser);
+		Document document = findAccessibleDocument(documentId, authenticatedUser);
+		document.updateMetadata(request.title(), request.description(), request.tags());
+		return toResponse(document);
+	}
+
+	@Override
+	@Transactional
+	public DocumentResponse updateStatus(
+			UUID documentId, UpdateDocumentStatusRequest request, AuthenticatedUser authenticatedUser) {
+		ensureCanWrite(authenticatedUser);
+		Document document = findAccessibleDocument(documentId, authenticatedUser);
+		document.transitionTo(request.status());
+		return toResponse(document);
+	}
+
+	private void ensureCanWrite(AuthenticatedUser authenticatedUser) {
+		if (authenticatedUser.role() == Role.VIEWER) {
+			throw new AccessDeniedException("Usuário sem permissão para alterar documentos.");
+		}
+	}
+
+	private Document findAccessibleDocument(UUID documentId, AuthenticatedUser authenticatedUser) {
+		return authenticatedUser.isAdmin()
 				? documentRepository.findById(documentId).orElseThrow(DocumentNotFoundException::new)
 				: documentRepository.findByIdAndTenantId(documentId, authenticatedUser.tenantId())
 						.orElseThrow(DocumentNotFoundException::new);
-		return toResponse(document);
 	}
 
 	private DocumentResponse toResponse(Document document) {

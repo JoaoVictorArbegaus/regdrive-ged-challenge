@@ -4,6 +4,8 @@ import br.com.regdrive.ged.auth.security.AuthenticatedUser;
 import br.com.regdrive.ged.document.api.DocumentApi;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentResponse;
+import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
+import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import br.com.regdrive.ged.document.service.DocumentService;
 import java.net.URI;
 import java.util.UUID;
@@ -27,5 +29,19 @@ public class DocumentController implements DocumentApi {
 	@Override
 	public ResponseEntity<DocumentResponse> findById(Jwt jwt, UUID documentId) {
 		return ResponseEntity.ok(documentService.findById(documentId, AuthenticatedUser.from(jwt)));
+	}
+
+	@Override
+	public ResponseEntity<DocumentResponse> updateMetadata(
+			Jwt jwt, UUID documentId, UpdateDocumentRequest request) {
+		return ResponseEntity.ok(documentService.updateMetadata(
+				documentId, request, AuthenticatedUser.from(jwt)));
+	}
+
+	@Override
+	public ResponseEntity<DocumentResponse> updateStatus(
+			Jwt jwt, UUID documentId, UpdateDocumentStatusRequest request) {
+		return ResponseEntity.ok(documentService.updateStatus(
+				documentId, request, AuthenticatedUser.from(jwt)));
 	}
 }

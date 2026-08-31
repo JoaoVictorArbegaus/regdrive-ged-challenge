@@ -1,5 +1,7 @@
 package br.com.regdrive.ged.document.domain;
 
+import br.com.regdrive.ged.document.exception.DocumentArchivedException;
+import br.com.regdrive.ged.document.exception.InvalidDocumentStatusTransitionException;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -70,6 +72,27 @@ public class Document {
 		this.ownerId = ownerId;
 		this.createdAt = now;
 		this.updatedAt = now;
+	}
+
+	public void updateMetadata(String title, String description, Set<String> tags) {
+		if (status == DocumentStatus.ARCHIVED) {
+			throw new DocumentArchivedException();
+		}
+		this.title = title.trim();
+		this.description = normalizeDescription(description);
+		this.tags.clear();
+		this.tags.addAll(normalizeTags(tags));
+		this.updatedAt = Instant.now();
+	}
+
+	public void transitionTo(DocumentStatus targetStatus) {
+		boolean validTransition = status == DocumentStatus.DRAFT && targetStatus == DocumentStatus.PUBLISHED
+				|| status == DocumentStatus.PUBLISHED && targetStatus == DocumentStatus.ARCHIVED;
+		if (!validTransition) {
+			throw new InvalidDocumentStatusTransitionException(status, targetStatus);
+		}
+		this.status = targetStatus;
+		this.updatedAt = Instant.now();
 	}
 
 	private String normalizeDescription(String value) {

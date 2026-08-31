@@ -13,6 +13,8 @@ import br.com.regdrive.ged.document.domain.Document;
 import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentResponse;
+import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
+import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
 import br.com.regdrive.ged.document.repository.DocumentRepository;
 import br.com.regdrive.ged.user.domain.Role;
@@ -103,5 +105,55 @@ class DocumentApplicationServiceTest {
 		assertThatThrownBy(() -> documentService.findById(documentId, user))
 				.isInstanceOf(DocumentNotFoundException.class);
 		verify(documentRepository, never()).findById(documentId);
+	}
+
+	@Test
+	void userUpdatesMetadataFromOwnTenant() {
+		UUID documentId = UUID.randomUUID();
+		AuthenticatedUser user = new AuthenticatedUser(
+				UUID.randomUUID(), "user", Role.USER, "tenant-demo");
+		Document document = new Document(
+				"Contrato", "Descrição", Set.of("antiga"), "tenant-demo", user.userId());
+		when(documentRepository.findByIdAndTenantId(documentId, "tenant-demo"))
+				.thenReturn(Optional.of(document));
+
+		DocumentResponse response = documentService.updateMetadata(
+				documentId,
+				new UpdateDocumentRequest("Atualizado", null, Set.of()),
+				user);
+
+		assertThat(response.title()).isEqualTo("Atualizado");
+		assertThat(response.description()).isNull();
+		assertThat(response.tags()).isEmpty();
+	}
+
+	@Test
+	void adminChangesStatusAcrossTenants() {
+		UUID documentId = UUID.randomUUID();
+		AuthenticatedUser admin = new AuthenticatedUser(
+				UUID.randomUUID(), "admin", Role.ADMIN, "tenant-admin");
+		Document document = new Document(
+				"Contrato", null, Set.of(), "tenant-client", UUID.randomUUID());
+		when(documentRepository.findById(documentId)).thenReturn(Optional.of(document));
+
+		DocumentResponse response = documentService.updateStatus(
+				documentId,
+				new UpdateDocumentStatusRequest(DocumentStatus.PUBLISHED),
+				admin);
+
+		assertThat(response.status()).isEqualTo(DocumentStatus.PUBLISHED);
+	}
+
+	@Test
+	void viewerCannotChangeStatus() {
+		AuthenticatedUser viewer = new AuthenticatedUser(
+				UUID.randomUUID(), "viewer", Role.VIEWER, "tenant-demo");
+
+		assertThatThrownBy(() -> documentService.updateStatus(
+				UUID.randomUUID(),
+				new UpdateDocumentStatusRequest(DocumentStatus.PUBLISHED),
+				viewer))
+				.isInstanceOf(AccessDeniedException.class);
+		verifyNoInteractions(documentRepository, userRepository);
 	}
 }

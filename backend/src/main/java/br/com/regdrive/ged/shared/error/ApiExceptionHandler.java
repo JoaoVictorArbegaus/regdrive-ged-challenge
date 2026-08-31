@@ -3,8 +3,11 @@ package br.com.regdrive.ged.shared.error;
 import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
 import br.com.regdrive.ged.document.exception.DocumentArchivedException;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
+import br.com.regdrive.ged.document.exception.FileStorageException;
+import br.com.regdrive.ged.document.exception.FileTooLargeException;
 import br.com.regdrive.ged.document.exception.InvalidDocumentListParameterException;
 import br.com.regdrive.ged.document.exception.InvalidDocumentStatusTransitionException;
+import br.com.regdrive.ged.document.exception.InvalidFileException;
 import br.com.regdrive.ged.document.exception.OwnerNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -20,12 +23,54 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
+
+	@ExceptionHandler({FileTooLargeException.class, MaxUploadSizeExceededException.class})
+	ResponseEntity<ProblemDetail> handleFileTooLarge(
+			Exception exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.CONTENT_TOO_LARGE,
+				"FILE_TOO_LARGE",
+				"Arquivo muito grande",
+				"O arquivo não pode exceder 10 MiB.",
+				request);
+		return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem);
+	}
+
+	@ExceptionHandler({InvalidFileException.class, MissingServletRequestPartException.class})
+	ResponseEntity<ProblemDetail> handleInvalidFile(
+			Exception exception, HttpServletRequest request) {
+		String detail = "O arquivo informado é inválido.";
+		if (exception instanceof InvalidFileException) {
+			detail = exception.getMessage();
+		}
+		ProblemDetail problem = createProblem(
+				HttpStatus.BAD_REQUEST,
+				"INVALID_FILE",
+				"Arquivo inválido",
+				detail,
+				request);
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+	}
+
+	@ExceptionHandler(FileStorageException.class)
+	ResponseEntity<ProblemDetail> handleFileStorage(
+			FileStorageException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.INTERNAL_SERVER_ERROR,
+				"FILE_STORAGE_ERROR",
+				"Falha no armazenamento",
+				"Não foi possível armazenar o arquivo.",
+				request);
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+	}
 
 	@ExceptionHandler(InvalidDocumentListParameterException.class)
 	ResponseEntity<ProblemDetail> handleInvalidListParameter(

@@ -4,12 +4,14 @@ import br.com.regdrive.ged.document.domain.DocumentStatus;
 import br.com.regdrive.ged.document.dto.CreateDocumentRequest;
 import br.com.regdrive.ged.document.dto.DocumentPageResponse;
 import br.com.regdrive.ged.document.dto.DocumentResponse;
+import br.com.regdrive.ged.document.dto.DocumentVersionResponse;
 import br.com.regdrive.ged.document.dto.UpdateDocumentRequest;
 import br.com.regdrive.ged.document.dto.UpdateDocumentStatusRequest;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 @RequestMapping("/api/documents")
 public interface DocumentApi {
@@ -29,6 +33,12 @@ public interface DocumentApi {
 	ResponseEntity<DocumentResponse> create(
 			@AuthenticationPrincipal Jwt jwt,
 			@Valid @RequestBody CreateDocumentRequest request);
+
+	@PostMapping(path = "/{documentId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	ResponseEntity<DocumentVersionResponse> uploadVersion(
+			@AuthenticationPrincipal Jwt jwt,
+			@PathVariable UUID documentId,
+			@RequestPart("file") MultipartFile file);
 
 	@GetMapping("/{documentId}")
 	ResponseEntity<DocumentResponse> findById(

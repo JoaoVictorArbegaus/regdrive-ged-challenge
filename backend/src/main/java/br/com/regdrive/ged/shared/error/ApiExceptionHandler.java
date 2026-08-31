@@ -3,6 +3,7 @@ package br.com.regdrive.ged.shared.error;
 import br.com.regdrive.ged.auth.exception.InvalidCredentialsException;
 import br.com.regdrive.ged.document.exception.DocumentArchivedException;
 import br.com.regdrive.ged.document.exception.DocumentNotFoundException;
+import br.com.regdrive.ged.document.exception.InvalidDocumentListParameterException;
 import br.com.regdrive.ged.document.exception.InvalidDocumentStatusTransitionException;
 import br.com.regdrive.ged.document.exception.OwnerNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,19 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ApiExceptionHandler {
+
+	@ExceptionHandler(InvalidDocumentListParameterException.class)
+	ResponseEntity<ProblemDetail> handleInvalidListParameter(
+			InvalidDocumentListParameterException exception, HttpServletRequest request) {
+		ProblemDetail problem = createProblem(
+				HttpStatus.BAD_REQUEST,
+				"INVALID_PARAMETER",
+				"Parâmetro inválido",
+				exception.getMessage(),
+				request);
+		problem.setProperty("parameter", exception.getParameter());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problem);
+	}
 
 	@ExceptionHandler(DocumentArchivedException.class)
 	ResponseEntity<ProblemDetail> handleDocumentArchived(

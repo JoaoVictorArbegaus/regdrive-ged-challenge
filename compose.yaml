@@ -28,11 +28,21 @@ services:
       DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin123}
       DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-user123}
       DEMO_VIEWER_PASSWORD: ${DEMO_VIEWER_PASSWORD:-viewer123}
+      FILE_STORAGE_PATH: /app/data/files
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - file-storage:/app/data/files
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   postgres-data:
+  file-storage:
